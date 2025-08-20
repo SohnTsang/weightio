@@ -17,6 +17,8 @@
   overflow: hidden;
   background: white;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  min-height: 60px;
+  display: block;
 }
 
 .results-ingredient-header {
@@ -76,6 +78,8 @@
   font-weight: 600;
   font-size: 16px;
   color: #2d3748;
+  display: block;
+  line-height: 1.4;
 }
 
 .results-ingredient-amount {
@@ -169,6 +173,9 @@
 
 .results-meal-content {
   padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  min-height: 100px;
 }
 
 .results-meal-ingredients {
@@ -407,6 +414,10 @@
   padding: 24px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.08);
   border: 1px solid #e2e8f0;
+  min-height: 200px;
+  display: block;
+  visibility: visible;
+  opacity: 1;
 }
 
 .results-meal-header {
