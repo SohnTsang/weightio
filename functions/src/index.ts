@@ -692,40 +692,37 @@ async function buildIngredientPlan(
     }
   }
 
-  // Helper to extend beams by adding k items from a category
-  function extendBeams(
+
+  // Enhanced version of extendBeams that promotes ingredient variety across meals
+  function extendBeamsWithVariety(
     beams: MealCombo[],
     cat: "protein"|"carb"|"veg"|"fat",
     kMin: number,
     kMax: number,
     beamSize = 40,
-    mealTargets?: { Ppm: number; Cpm: number; Fpm: number; Kpm: number }
+    mealTargets?: { Ppm: number; Cpm: number; Fpm: number; Kpm: number },
+    usedIngredients?: Set<string>
   ): MealCombo[] {
     const ingList = pool[cat];
     const out: MealCombo[] = [];
-
-    // Fixed: Use correct macro targets for each category and add randomization
-    const targets = mealTargets || { Ppm, Cpm, Fpm, Kpm };
-    const targetMacro = cat === "protein" ? targets.Ppm : cat === "carb" ? targets.Cpm : cat === "fat" ? targets.Fpm : 0;
-    const macroGetter = (ing: IngredientDocV2) => {
-      const m = ing.macro_per_100g;
-      const portion = ing.typical_portion_g || 100;
-      return cat === "protein" ? (m.p * portion / 100) : 
-             cat === "carb" ? (m.c * portion / 100) :
-             cat === "fat" ? (m.f * portion / 100) : 0;
-    };
+    const targets = mealTargets || { Ppm, Cpm, Fpm, Kpm: Ppm*4 + Cpm*4 + Fpm*9 };
     
-    const ranked = [...ingList].sort((a,b)=>{
-      const aScore = Math.abs(macroGetter(a) - targetMacro);
-      const bScore = Math.abs(macroGetter(b) - targetMacro);
-      return aScore - bScore;
+    // Filter out recently used ingredients to promote variety
+    const availableIngredients = ingList.filter(ing => {
+      // Allow reuse after 2 meals or if we're running out of options
+      return !usedIngredients?.has(ing.name) || ingList.length < 3;
     });
+    
+    // If we filtered out too many, add some back
+    const ingredientsToUse = availableIngredients.length >= 3 
+      ? availableIngredients 
+      : ingList.slice(0, Math.max(5, Math.floor(ingList.length * 0.7)));
 
-    // Shuffle for variety - take different ingredients for different beams
-    const shuffled = [...ranked];
-    for (let i = shuffled.length - 1; i > 0; i--) {
+    // Shuffle ingredients based on meal index for variety
+    const shuffledIngredients = [...ingredientsToUse];
+    for (let i = shuffledIngredients.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      [shuffledIngredients[i], shuffledIngredients[j]] = [shuffledIngredients[j], shuffledIngredients[i]];
     }
 
     // Helper to check if ingredient name already exists in beam
@@ -738,9 +735,8 @@ async function buildIngredientPlan(
       for (let k = kMin; k <= kMax; k++) {
         if (k === 0) { out.push(beam); continue; }
 
-        // Use more ingredients for variety - alternate between shuffled and ranked
-        const useShuffled = Math.random() < 0.6; // 60% chance to use variety
-        const choices = (useShuffled ? shuffled : ranked).slice(0, Math.min(20, ingList.length));
+        // Use shuffled ingredients for variety
+        const choices = shuffledIngredients.slice(0, Math.min(15, shuffledIngredients.length));
         
         // single
         if (k >= 1) {
@@ -809,23 +805,26 @@ async function buildIngredientPlan(
 
   const meals: IngredientsPlan["meals"] = [];
 
+  // Create a used ingredients tracker to ensure variety across meals
+  const usedIngredients = new Set<string>();
+  
   for (let mealIdx = 0; mealIdx < meals_per_day; mealIdx++) {
     // Start with empty beam
     let beams: MealCombo[] = [{ items: [], totP:0, totC:0, totF:0, totK:0, score: scoreCombo(0,0,0,Ppm,Cpm,Fpm,Kpm) }];
 
-    // Add meal-specific variety by adjusting targets slightly for each meal
-    const varietyFactor = 0.15; // ±15% variation
+    // Add meal-specific variety by adjusting targets and ingredient preferences
+    const varietyFactor = 0.25; // ±25% variation for more diversity
     const mealPpm = Ppm * (1 + (Math.random() - 0.5) * varietyFactor);
     const mealCpm = Cpm * (1 + (Math.random() - 0.5) * varietyFactor); 
     const mealFpm = Fpm * (1 + (Math.random() - 0.5) * varietyFactor);
 
     const mealTargets = { Ppm: mealPpm, Cpm: mealCpm, Fpm: mealFpm, Kpm: mealPpm*4 + mealCpm*4 + mealFpm*9 };
 
-    // Order: proteins → carbs → veg → fat
-    beams = extendBeams(beams, "protein", ranges.protein[0], ranges.protein[1], 40, mealTargets);
-    beams = extendBeams(beams, "carb",    ranges.carb[0],    ranges.carb[1],    60, mealTargets);
-    beams = extendBeams(beams, "veg",     ranges.veg[0],     ranges.veg[1],     60, mealTargets);
-    beams = extendBeams(beams, "fat",     ranges.fat[0],     ranges.fat[1],     60, mealTargets);
+    // Order: proteins → carbs → veg → fat (with variety filtering)
+    beams = extendBeamsWithVariety(beams, "protein", ranges.protein[0], ranges.protein[1], 40, mealTargets, usedIngredients);
+    beams = extendBeamsWithVariety(beams, "carb",    ranges.carb[0],    ranges.carb[1],    60, mealTargets, usedIngredients);
+    beams = extendBeamsWithVariety(beams, "veg",     ranges.veg[0],     ranges.veg[1],     60, mealTargets, usedIngredients);
+    beams = extendBeamsWithVariety(beams, "fat",     ranges.fat[0],     ranges.fat[1],     60, mealTargets, usedIngredients);
 
     // Final selection: keep combos within tolerance; otherwise keep top few anyway
     const withinTol = beams.filter(b => {
@@ -853,6 +852,11 @@ async function buildIngredientPlan(
     }
 
     console.log(`Meal ${mealIdx + 1} best combo:`, bestCombo);
+
+    // Track ingredients used in this meal to promote variety in next meals
+    bestCombo.items.forEach(item => {
+      usedIngredients.add(item.name);
+    });
 
     // Separate ingredients by category for replacement system
     const proteinItems = bestCombo.items.filter(it => it.category === 'protein');

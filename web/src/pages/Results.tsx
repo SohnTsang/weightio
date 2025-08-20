@@ -6,8 +6,6 @@ import "./Results.css";
 export default function Results({ plan }: { plan: GenerateRes | null }) {
   if (!plan) return null;
 
-  console.log("Plan data:", plan); // Debug logging
-
   return (
     <div className="results-page">
       {/* Header Section */}
@@ -91,10 +89,9 @@ export default function Results({ plan }: { plan: GenerateRes | null }) {
           </h2>
           
           <div className="results-meals-container">
-            {(plan.ingredients?.meals || []).map((meal, idx) => {
-              console.log(`Rendering meal ${idx + 1}:`, meal);
-              return <MealCard key={idx} mealNumber={idx + 1} meal={meal} />
-            })}
+            {(plan.ingredients?.meals || []).map((meal, idx) => (
+              <MealCard key={idx} mealNumber={idx + 1} meal={meal} />
+            ))}
           </div>
         </div>
       </section>
@@ -190,8 +187,6 @@ function MealCard({
     fat: meal.fat_opts?.[0] || null,
   });
 
-  console.log(`MealCard ${mealNumber} selectedOptions:`, selectedOptions);
-  console.log(`MealCard ${mealNumber} meal structure:`, meal);
 
   // Calculate total calories and macros from selected ingredients
   const calculateTotals = () => {
