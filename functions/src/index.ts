@@ -648,7 +648,6 @@ async function buildIngredientPlan(
   budget_tier: BudgetTier,
   macros: { protein_g: number; fat_g: number; carb_g: number },
   meals_per_day = 3,
-  options_per_meal = 5,
   strictness: "normal" | "tight" | "loose" = "normal",
   goalHint: Goal = "recomp"
 ): Promise<IngredientsPlan> {
@@ -838,7 +837,7 @@ async function buildIngredientPlan(
 
     const final = (withinTol.length > 0 ? withinTol : beams)
       .sort((a,b)=>a.score - b.score)
-      .slice(0, options_per_meal);
+      .slice(0, 1); // Only take the best combo
 
     // Take only the best combo for this meal (single option)
     const bestCombo = final[0];
@@ -852,6 +851,8 @@ async function buildIngredientPlan(
       });
       continue;
     }
+
+    console.log(`Meal ${mealIdx + 1} best combo:`, bestCombo);
 
     // Separate ingredients by category for replacement system
     const proteinItems = bestCombo.items.filter(it => it.category === 'protein');
@@ -994,7 +995,9 @@ app.post('/generatePlan', async (req: express.Request, res: express.Response) =>
     const workouts = await buildWorkouts(schedule_days, body.experience, body.goal, body.equipment, body.injuries ?? []);
     // Use goal-based default or user-specified meals per day
     const mealsPerDay = body.meals_per_day ?? DEFAULT_MEALS_BY_GOAL[body.goal];
-    const ingredients = await buildIngredientPlan(body.budget_tier, macros, mealsPerDay, 5, "normal", body.goal);
+    const ingredients = await buildIngredientPlan(
+      body.budget_tier, macros, mealsPerDay, "normal", body.goal
+    );
 
     const { accuracy, next_best_input } = accuracyBand(body);
 
