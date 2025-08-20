@@ -11,13 +11,16 @@
 
 /* New Ingredient Category Styles */
 .results-ingredient-category {
+  position: relative; /* For absolute positioned dropdown */
   margin-bottom: 12px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible; /* Changed from hidden to allow dropdown to show */
   background: white;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   transition: all 0.2s ease;
+  width: 100%; /* Ensure full width */
+  min-width: 320px; /* Minimum width to prevent squeezing */
 }
 
 .results-ingredient-category:hover {
@@ -32,6 +35,8 @@
   padding: 14px 16px;
   background: #fafbfc;
   border-bottom: none;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .results-ingredient-main {
@@ -90,6 +95,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 200px; /* Prevent very long names from breaking layout */
 }
 
 .results-ingredient-amount {
@@ -138,9 +144,19 @@
 }
 
 .results-alternatives {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
   padding: 20px;
   background: white;
-  border-top: 1px solid #e2e8f0;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  z-index: 1000;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .results-alternatives-title {
@@ -194,12 +210,15 @@
   background: #f8f9fa;
   border-radius: 8px;
   min-height: 100px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .results-meal-ingredients {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
 }
 
 .results-meal-totals {
