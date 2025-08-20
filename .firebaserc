@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "weightio",
+    "prod": "weightio"
+  },
+  "targets": {},
+  "etags": {}
+}

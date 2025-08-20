@@ -1,0 +1,17 @@
+# Node / Functions / Web
+node_modules
+dist
+.npm
+.eslintcache
+
+# iOS
+ios-app/**/DerivedData
+ios-app/**/build
+ios-app/**/Pods
+ios-app/**/xcuserdata
+
+# Secrets
+service-account.json
+config/*.json
+.env
+.env.local

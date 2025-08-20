@@ -1,0 +1,505 @@
+0) Product pillars
+
+Minimum input → useful plan (works with 1+ inputs; shows how to improve accuracy).
+
+One question for time: “How many days per week can you train?” (1–6; 7 caps at 6 + 1 recovery).
+
+Ingredient-only nutrition by budget tier (Low/Medium/High).
+
+Male/Female aware (BMR/TDEE/macros), readiness-driven adaptation.
+
+Safety-first supplements with clear pros/cons/side effects.
+
+1) Data dictionary (inputs) — types, validation, purpose
+
+Users can either (A) enter raw data to compute indexes or (B) directly enter indexes (BMR/TDEE/BMI). If both exist, we use the override, and show the delta vs computed.
+
+1.1 Required
+
+Sex: enum("male","female")
+
+Purpose: BMR formula selection, macro heuristics.
+
+Schedule days/week: int[1..6] (if user selects 7 → internally set to 6 + 1 recovery note)
+
+Purpose: Determines split and weekly volume distribution.
+
+1.2 Optional (raw data)
+
+Age range: enum("<18","18–24","25–34","35–44","45–54","55–60",">60")
+
+Mapping to numeric age for BMR if no exact age given:
+
+<18→16*, 18–24→21, 25–34→29, 35–44→39, 45–54→49, 55–60→57, >60→65
+
+*Note: <18 shows a caution banner (growth considerations; avoid aggressive cutting).
+
+Height_cm: number (int) [120..220]
+
+Weight_kg: number (float) [30..250]
+
+Bodyfat_pct: number (float) [5..60] (optional; enables Katch–McArdle)
+
+Waist_cm: number (int) [40..180] (for WHtR risk screen)
+
+Experience: enum("novice","intermediate","advanced")
+
+Novice = <1y consistent lifting; Intermediate = 1–3y; Advanced = >3y with plateaus.
+
+Equipment: enum("full_gym","dumbbells_only","bands_only","bodyweight_only")
+
+Injuries/flags: array<enum("shoulder","elbow","wrist","low_back","hip","knee","ankle")>
+
+1.3 Optional (direct index overrides)
+
+BMR_override: number (kcal/day) [800..3000]
+
+TDEE_override: number (kcal/day) [1200..5000]
+
+BMI_override: number [10..60]
+
+Accuracy meter:
+
+Low (sex only/ + weight) → Medium (+height + age range) → High (+bodyfat_pct; Katch–McArdle) → Highest (+waist_cm for WHtR risk context).
+
+UI always shows “Add X to improve accuracy”.
+
+2) Indexes (computed or overridden)
+
+BMR (Mifflin–St Jeor)
+
+Male: 10*kg + 6.25*cm − 5*age + 5
+
+Female: 10*kg + 6.25*cm − 5*age − 161
+
+If only age range given → use mapped numeric age (above).
+
+BMR (Katch–McArdle) if bodyfat_pct present
+
+LBM = weight * (1 − bodyfat) → BMR = 370 + 21.6*LBM
+
+TDEE = BMR * activity_multiplier(schedule_days)
+
+Suggested mapping: 1–2→1.375, 3–4→1.55, 5–6→1.725
+
+BMI = kg / m² (or override)
+
+WHtR = waist_cm / height_cm (risk context only)
+
+Est. 1RM (Epley) for strength goal when set/rep entered: 1RM = load*(1 + reps/30)
+
+FFMI (context only)
+
+Conflict handling: If override differs >15% from computed, show non-blocking warning with both values.
+
+3) Training plan — split, volume, selection, progression
+3.1 Split mapping (driven solely by days/week)
+
+1 day: Full Body (FB)
+
+2 days: Upper/Lower
+
+3 days: Push / Pull / Legs (or FB×3 option)
+
+4 days: Upper/Lower ×2 (ULUL)
+
+5 days: PPL + UL (or specialization bias)
+
+6 days: PPL ×2 (or specialization split)
+
+7 input: Force 6 train + 1 active recovery (mobility/zone-2)
+
+3.2 Weekly training dose (by experience; auto-adjusted) ✅ updated
+
+Novice: 8–12 sets/muscle/week
+
+Intermediate: 12–16 sets/muscle/week
+
+Advanced: 14–20 sets/muscle/week
+
+Goal modifiers:
+
+Hypertrophy: 6–15 reps @ RIR 1–3 (default).
+
+Strength: 3–6 reps @ RIR 1–2; −20% sets vs hypertrophy.
+
+Fat loss: keep loads heavy; −15% sets vs hypertrophy; add low-intensity cardio/recovery blocks.
+
+3.3 Exercise selection rules
+
+Filter by equipment (includes bodyweight_only) and injury flags.
+
+Prioritize compounds; meet weekly set targets by muscle; fill with isolations.
+
+Provide busy-day variant (≤25 min): supersets/giant sets of safer movements.
+
+3.4 Progression & autoregulation
+
+Double progression: if user hits top of rep range at target RIR → +2.5–5% load next time.
+
+If last session RIR ≤0 or missed reps → hold load, −1 set next time for that lift.
+
+Auto-deload at week 4–6 or when readiness low across 4+ days in a week.
+
+4) Readiness & plan adaptation (auto-adjust)
+
+Daily check-in (30s): sleep hours, soreness by region (1–5), stress (1–5), motivation (1–5).
+Rules applied by adaptPlan:
+
+Region soreness ≥4 → −1–2 sets for that region next session; suggest regression.
+
+Global readiness ≤2 for 2+ days → −10% total sets for the week; cap RIR at 2; remove failure work.
+
+Readiness ≥4 with easy sessions (RIR too high) → +1 set on lagging muscles or +2.5–5% load.
+
+Weight trend misses target 2 weeks → kcal ±5–10% (nutrition auto-tweak).
+
+5) Nutrition — ingredient-only, budget-tiered, sex-aware
+5.1 Calories & macros
+
+Goal: fat_loss | lean_mass | strength | recomposition
+
+Calories:
+
+Fat loss: TDEE * (0.80–0.90)
+
+Lean mass: TDEE * (1.05–1.10)
+
+Recomp: TDEE * (0.95–1.05)
+
+Protein: 1.6–2.2 g/kg (both sexes)
+
+Fat: 0.6–1.0 g/kg (lower end on cuts)
+
+Carbs: remainder
+
+5.2 Ingredient plan (no recipes)
+
+Budget tiers: enum("low","medium","high") on each ingredient.
+
+Meal slots: default 3–4/day; allocate macro sub-targets (e.g., P 30–40 g per meal).
+
+For each meal, provide ≥3 options per category:
+
+Protein (e.g., chicken breast, salmon, lean beef, tofu/edamame, eggs, Greek yogurt)
+
+Carb (rice, potatoes, sweet potatoes, oats, pasta, bread, soba/udon)
+
+Veg (leafy + colorful: spinach, broccoli, carrots, peppers, cabbage)
+
+Fat (olive oil, avocado, nuts, sesame oil, egg yolk)
+
+Each option returns suggested grams so picking one from each category lands within ±10% of the meal’s macro sub-targets.
+
+Training-day bias (optional v1.1): push +10–15% carbs to post-workout slot.
+
+5.3 Auto-adjustment triggers
+
+Any change to sex/age range/height/weight/bodyfat → recompute BMR/TDEE ⇒ kcal/macros ⇒ ingredient grams.
+
+Schedule change → (optional) redistribute carbs to training days.
+
+Weight trend miss 2 weeks → kcal ±5–10% with rationale banner.
+
+6) Supplements advisor (expanded, safety-first)
+
+Per item fields
+name:string, category:enum("core","performance","health"), goals:string[], dose:{amount:string,timing:string}, pros:string[], cons:string[], side_effects:string[], cautions:string[], evidence_tier:enum("A","B","C"), purchase_checks:string[]
+
+Core: Protein (whey/casein/plant), Creatine Monohydrate (3–5 g/d), Caffeine (1–3 mg/kg pre).
+Performance/Conditional: BCAA (5–10 g when fasted/low-protein), EAA (10–15 g), Beta-Alanine (3.2–6.4 g/d split), Citrulline Malate (6–8 g pre), HMB (3 g/d), L-Carnitine (1–2 g/d), Electrolytes, Sodium Bicarbonate (0.2–0.3 g/kg pre—GI caution), Nitrates/Beetroot (400–800 mg nitrate pre).
+Health: Omega-3 (1–2 g EPA+DHA/d), Vitamin D3 (1k–2k IU/d), Magnesium (200–400 mg), Ashwagandha/Rhodiola (stress/fatigue; med interactions).
+Buying & safety: third-party tested (NSF/Informed Choice), no proprietary blends, total caffeine check, pregnancy/hypertension flags.
+
+7) System design (Firebase)
+7.1 Firestore — reference (public read)
+/exercises/{id}: {
+  "name": string,
+  "muscles": string[],                // e.g., ["chest","triceps"]
+  "equipment": string[],              // e.g., ["barbell","dumbbell","cable","bodyweight"]
+  "movement": "compound"|"isolation",
+  "cues": string[],
+  "regressions": string[], "progressions": string[]
+}
+
+(plan template is a scaffold; the engine fills exact sets)
+/plan_templates/{id}: {
+  "goal": "hypertrophy"|"strength"|"fat_loss"|"recomp",
+  "experience": "novice"|"intermediate"|"advanced",
+  "days": 1|2|3|4|5|6,
+  "equipment_profiles": string[],     // e.g., ["full_gym","dumbbells_only","bodyweight_only"]
+  "weekly_structure": [ { "day": 1, "blocks": [ { "muscle": "chest", "set_target": "8-10" } ] } ]
+}
+
+# Ingredient catalog
+/ingredients/{id}: {
+  "name": string,
+  "category": "protein"|"carb"|"veg"|"fat",
+  "macro_per_100g": { "kcal": number, "p": number, "c": number, "f": number },
+  "typical_portion_g": number,
+  "budget_tier": "low"|"medium"|"high",
+  "notes": string
+}
+
+/supplements/{id}: { ... as defined above ... }
+
+/calculator_constants/global: {
+  "activity_by_days": { "1":1.375, "2":1.375, "3":1.55, "4":1.55, "5":1.725, "6":1.725 },
+  "rep_ranges": { "hypertrophy":[6,15], "strength":[3,6] },
+  "sets_by_experience": { "novice":[8,12], "intermediate":[12,16], "advanced":[14,20] }
+}
+
+7.2 Firestore — user (enable after auth; iOS first runs offline/local)
+/users/{uid}: {
+  "sex": "male"|"female",
+  "age_range": "<18"|"18–24"|"25–34"|"35–44"|"45–54"|"55–60"|">60",
+  "height_cm": number, "weight_kg": number,
+  "bodyfat_pct": number|null, "waist_cm": number|null,
+  "schedule_days": 1|2|3|4|5|6,
+  "experience": "novice"|"intermediate"|"advanced",
+  "equipment": "full_gym"|"dumbbells_only"|"bands_only"|"bodyweight_only",
+  "injuries": string[],
+  "overrides": { "BMR": number|null, "TDEE": number|null, "BMI": number|null }
+}
+
+.../generated_plans/{planId}: {
+  "created_at": timestamp,
+  "goal": string,
+  "idx": { "BMR": number, "TDEE": number, "BMI": number|null, "WHtR": number|null, "method": "mifflin"|"katch"|"override" },
+  "kcal": number, "macros": { "protein_g": number, "fat_g": number, "carb_g": number },
+  "workouts": [ { "day": 1, "blocks": [ { "muscle": "quads", "exerciseId": "back_squat", "sets": 4, "reps": "6–10", "rir": "1–3", "alt_compact": true } ] } ],
+  "ingredients": { "meals": [ { "protein_opts": [...], "carb_opts": [...], "veg_opts": [...], "fat_opts": [...] } ] },
+  "confidence": "low"|"med"|"high",
+  "tips": string[]
+}
+
+.../readiness_logs/{date}: { "sleep_h": number, "soreness": { "chest":1..5,... }, "stress":1..5, "motivation":1..5 }
+.../progress_logs/{date}: { "weight_kg": number, "waist_cm": number, "lifts": { "bench": { "weight": number, "reps": number } } }
+
+7.3 Security & infra
+
+Rules: reference data public-read, user data private (after auth).
+
+App Check on web/iOS, rate limiting on Functions, payload schema validation.
+
+Hosting: web SPA; iOS uses Firestore SDK + HTTPS callable Functions.
+
+8) Cloud Functions (contracts & rules)
+8.1 recalculateIndexes
+
+Req
+
+{ "sex":"male|female", "age_range":"<18"|"...", "height_cm":120-220?, "weight_kg":30-250?, 
+  "bodyfat_pct":5-60?, "waist_cm":40-180?,
+  "overrides": { "BMR":800-3000?, "TDEE":1200-5000?, "BMI":10-60? } }
+
+
+Res
+
+{ "BMR": number, "method":"mifflin"|"katch"|"override", "TDEE": number,
+  "BMI": number|null, "WHtR": number|null, "FFMI": number|null,
+  "accuracy":"low"|"med"|"high",
+  "next_best_input":"height_cm"|"weight_kg"|"bodyfat_pct"|"waist_cm" }
+
+
+Logic
+
+Map age_range → numeric age; prefer Katch if bodyfat_pct exists; respect overrides; compute accuracy band & next-best input.
+
+8.2 generatePlan
+
+Req
+
+{ "sex":"male|female", "goal":"fat_loss|lean_mass|strength|recomp",
+  "schedule_days":1-6,
+  "equipment":"full_gym|dumbbells_only|bands_only|bodyweight_only",
+  "experience":"novice|intermediate|advanced",
+  "injuries":[],
+  "age_range":"<18"|"...", "height_cm"?:..., "weight_kg"?:..., "bodyfat_pct"?:..., "waist_cm"?:...,
+  "overrides": { "BMR"?:..., "TDEE"?:..., "BMI"?:... },
+  "budget_tier":"low|medium|high" }
+
+
+Res
+
+{ "idx":{...}, "kcal": number, "macros": {"protein_g": number, "fat_g": number, "carb_g": number},
+  "workouts":[ { "day":1, "blocks":[ { "muscle":"back", "exerciseId":"pullup_bw", "sets":4, "reps":"6–10", "rir":"1–3", "alt_compact":true } ] } ],
+  "ingredients":{ "meals":[ { "protein_opts":[{ "ingredientId":"protein_chicken_breast","grams":120,"p":37,"c":0,"f":4,"kcal":198,"budget_tier":"low" }], "carb_opts":[...], "veg_opts":[...], "fat_opts":[...] } ] },
+  "confidence":"low|med|high",
+  "tips":["Add body fat % to improve BMR accuracy"]
+}
+
+
+Key rules
+
+Split by schedule_days.
+
+Volume by experience (Nov 8–12 / Int 12–16 / Adv 14–20), modified by goal.
+
+Exercise pool filtered by equipment (supports bodyweight_only) & injuries.
+
+Macros computed from TDEE & goal; ingredient options hit per-meal macros within ±10%.
+
+8.3 adaptPlan
+
+Req
+
+{ "current_plan":{...},
+  "readiness":{ "sleep_h": number, "soreness": { "chest":1..5 }, "stress":1..5, "motivation":1..5 },
+  "last_week_adherence_pct": number?, "weight_trend_2w": "below|on_target|above" }
+
+
+Res
+
+{ "patched_plan":{...}, "change_log":[ "Legs -2 sets (soreness 5)", "Calories -5% (weight above target)" ] }
+
+9) iOS app — screens, interactions, flows
+9.1 Tech
+
+SwiftUI + MVVM, Firestore SDK, HTTPSCallable, local cache (CoreData/JSON). Notifications later.
+
+9.2 Screens
+
+Onboarding
+
+Fields: sex (segmented), age_range (picker), height_cm (numeric), weight_kg (numeric), bodyfat_pct (numeric), waist_cm (numeric), schedule_days (1–6 stepper), experience (segmented), equipment (picker incl. bodyweight_only), injuries (chips).
+
+Toggle: Direct index overrides (BMR/TDEE/BMI).
+
+Accuracy meter + hint (“Add body fat % for higher accuracy”).
+
+CTA Generate Plan → call generatePlan → cache plan.
+
+Today
+
+Workout card: sets×reps×RIR, quick log, “Too easy/Too hard” buttons, Busy-day toggle.
+
+Meals card: per-meal macro targets; ingredient pickers (protein/carb/veg/fat) by budget tier; select → suggested grams; live macro remainder.
+
+Mini-readiness: 3 sliders; submit queues adaptPlan.
+
+Readiness
+
+Full check-in; applies adaptPlan; shows change log banner.
+
+Calculators
+
+BMR/TDEE/BMI/WHtR; accept raw or direct index; show deltas.
+
+Supplements
+
+Filter by goal; detail pages with dose/timing, pros/cons, side effects, cautions, evidence tier, buying checks.
+
+Progress
+
+Weight/waist trends, PRs, adherence %, weekly volume by muscle.
+
+Offline: keep last plan & reference data; queue logs; recompute UI previews; canonical plan comes from Functions.
+
+10) Web app — simple, no auth
+Pages & flows
+
+Planner: same inputs (incl. age_range, equipment with bodyweight_only). Live accuracy meter.
+
+Results: split overview, sample week with sets×reps×RIR, kcal/macros, ingredient options by budget tier (grams), supplement shortlist. Export PDF.
+
+Reference: “How plans adapt” & “Supplement buying safety”.
+
+Infra: Firebase Hosting, Firestore read-only refs, HTTPS Functions with App Check.
+
+11) Auto-adjust matrix (what changes when)
+User change	Workout impact	Nutrition impact	Why it helps
+Sex	none in split; affects cues only	BMR/TDEE → macros update	Sex affects BMR constants
+Age range	none	BMR/TDEE → macros update	Age drives BMR term
+Height/Weight	none	BMI context, BMR/TDEE → macros	Size drives energy needs
+Bodyfat %	none	Switch to Katch–McArdle (LBM-based)	More accurate BMR
+Waist	none	none (risk screen only)	Health context
+Schedule days	Split & weekly sets redistribute	(optional) carb timing	Time availability = structure
+Experience	Target set range changes (8–12 / 12–16 / 14–20)	none	Tolerance & stimulus
+Equipment	Exercise pool changes (supports bodyweight_only)	none	Feasible execution
+Injuries	Swap/regress movements, local set cuts	none	Safety & adherence
+Readiness	Sets/load adjust; deload flag	kcal tweak on 2-week trend	Recovery governs adaptation
+Index overrides	none	Use override; show delta	Respect known values
+12) Algorithms (succinct)
+
+setCalories(TDEE, goal) → cut: ×0.80–0.90; lean: ×1.05–1.10; recomp: ×0.95–1.05.
+
+setMacros(sex, weight, kcal, goal) → protein 1.6–2.2 g/kg; fat 0.6–1.0 g/kg (lower when cutting); carbs = remainder.
+
+Ingredient allocator → split daily macros across meals; for each meal, offer options per category whose suggested grams keep meal within ±10% macro sub-targets; adjust carb staple ±10–20 g if needed.
+
+Sets by experience → Nov 8–12 / Int 12–16 / Adv 14–20; apply goal modifiers; distribute across split; fill with exercises filtered by equipment & injuries.
+
+Progression → double progression; +2.5–5% load when rep ceiling hit; hold or −1 set after failure/high fatigue; deload at week 4–6 or poor readiness.
+
+13) Build plan (auth last)
+
+Sprint 0 – Setup
+
+Firebase project, Firestore (native), Functions, Hosting, App Check.
+
+Seed /exercises (incl. bodyweight moves), /ingredients, /supplements, /plan_templates, /calculator_constants.
+
+Sprint 1 – Calculators & inputs
+
+recalculateIndexes with age range mapping + accuracy meter.
+
+iOS/Web calculator UIs; direct index overrides + delta warnings.
+
+Sprint 2 – Plan generation
+
+generatePlan implementing: split by days, sets 8–12 / 12–16 / 14–20, equipment filter (incl. bodyweight_only), macros, ingredient allocator by budget.
+
+iOS Onboarding → plan; Web Planner → Results.
+
+Sprint 3 – iOS Today & Meals
+
+Fast set logging, RIR slider, Busy-day toggle.
+
+Ingredient pickers with grams and budget badges; live macro remainder.
+
+Sprint 4 – Adaptation
+
+Readiness screen; adaptPlan; change-log banner; deload logic.
+
+Sprint 5 – Supplements
+
+Catalog with filters and detailed safety pages.
+
+Sprint 6 – Progress & polish
+
+Trends (weight/waist/PRs/volume), localization (EN/JP), accessibility, offline cache.
+
+Sprint 7 – Authentication
+
+Enable Firebase Auth; migrate local iOS data to /users/{uid}; secure rules.
+
+Web remains no-auth; optional “Save to app” deep link appears once auth exists.
+
+14) QA acceptance criteria
+
+Minimal input (sex + schedule) yields a plan (Low accuracy) with clear “add X” hints.
+
+Age range changes macros appropriately; switching to bodyfat_pct toggles Katch–McArdle.
+
+Schedule change remaps split and weekly sets without exceeding 12–16 / 14–20 caps.
+
+Equipment = bodyweight_only produces feasible workouts (push-ups, rows, split squats, hip hinges, calf raises, core).
+
+Ingredient options per meal allow any single choice from each category to stay within ±10% macro sub-targets.
+
+Readiness lows reduce sets; highs increase load/sets per rules; change-log displayed.
+
+Weight trend 2 weeks triggers kcal ±5–10%.
+
+15) Why these choices are good for users
+
+Age ranges as input reduce friction; mapping maintains BMR accuracy.
+
+Bodyweight equipment ensures everyone (home/travel) can start today.
+
+Clear volume bands (Nov 8–12 / Int 12–16 / Adv 14–20) deliver enough stimulus while controlling fatigue.
+
+Ingredient choices respect budget and preference without recipe overhead.
+
+One schedule question simplifies planning; adaptation keeps it safe & sustainable.

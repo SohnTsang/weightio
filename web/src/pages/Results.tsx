@@ -1,0 +1,621 @@
+// web/src/pages/Results.tsx
+import React from "react";
+import type { GenerateRes, MealOptions } from "../types";
+import "./Results.css";
+
+export default function Results({ plan }: { plan: GenerateRes | null }) {
+  if (!plan) return null;
+
+  console.log("Plan data:", plan); // Debug logging
+
+  return (
+    <div className="results-page">
+      {/* Header Section */}
+      <section className="results-header-section">
+        <div className="results-header-content">
+          <span className="results-header-icon">🎯</span>
+          <h1 className="results-header-title">Your AI-Powered Plan is Ready!</h1>
+          <p className="results-header-subtitle">
+            Personalized training & nutrition designed just for you
+          </p>
+          
+          <div className="results-confidence-card">
+            <div className={`results-confidence-badge confidence-${plan.confidence}`}>
+              {plan.confidence.toUpperCase()} CONFIDENCE
+            </div>
+            {(plan.tips && plan.tips.length > 0) && (
+              <div className="results-tips">
+                <span className="results-tips-icon">💡</span>
+                <span>{plan.tips.join(" • ")}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Key Metrics Overview */}
+      <section className="results-section">
+        <div className="results-container">
+          <h2 className="results-section-title">
+            <span className="results-section-icon">📊</span>
+            Your Plan Overview
+          </h2>
+          
+          <div className="results-metrics-grid">
+            <MetricCard
+              icon="🔥"
+              title="Daily Calories"
+              value={`${plan.kcal || 0}`}
+              unit="kcal"
+            />
+            <MetricCard
+              icon="⚡"
+              title="BMR"
+              value={`${Math.round(plan.idx?.BMR || 0)}`}
+              unit="kcal/day"
+            />
+            <MetricCard
+              icon="🎯"
+              title="TDEE"
+              value={`${Math.round(plan.idx?.TDEE || 0)}`}
+              unit="kcal/day"
+            />
+            <MetricCard
+              icon="💪"
+              title="Protein"
+              value={`${plan.macros?.protein_g || 0}`}
+              unit="g"
+            />
+            <MetricCard
+              icon="🍞"
+              title="Carbs"
+              value={`${plan.macros?.carb_g || 0}`}
+              unit="g"
+            />
+            <MetricCard
+              icon="🫒"
+              title="Fat"
+              value={`${plan.macros?.fat_g || 0}`}
+              unit="g"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Meal Plans Section */}
+      <section className="results-section">
+        <div className="results-container">
+          <h2 className="results-section-title">
+            <span className="results-section-icon">🍽️</span>
+            Your Meal Plans
+          </h2>
+          
+          <div className="results-meals-container">
+            {(plan.ingredients?.meals || []).map((meal, idx) => (
+              <MealCard key={idx} mealNumber={idx + 1} meal={meal} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Training Schedule Section */}
+      <section className="results-section">
+        <div className="results-container">
+          <h2 className="results-section-title">
+            <span className="results-section-icon">💪</span>
+            Your Training Schedule
+          </h2>
+          
+          <div className="results-workouts-grid">
+            {(plan.workouts || []).map((day) => (
+              <WorkoutCard key={day.day} day={day} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Export & Actions */}
+      <section className="results-actions-section">
+        <div className="results-actions-container">
+          <div className="results-actions-grid">
+            <button 
+              onClick={() => exportToPDF(plan)}
+              className="results-action-button primary"
+            >
+              <span className="results-action-icon">📄</span>
+              <span>Export PDF</span>
+            </button>
+            
+            <button 
+              onClick={() => sharesPlan(plan)}
+              className="results-action-button"
+            >
+              <span className="results-action-icon">📤</span>
+              <span>Share Plan</span>
+            </button>
+            
+            <button 
+              onClick={() => window.print()}
+              className="results-action-button"
+            >
+              <span className="results-action-icon">🖨️</span>
+              <span>Print</span>
+            </button>
+          </div>
+          
+          <div className="results-footer">
+            Generated by Weightio AI • Personalized for optimal results
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// Metric Card Component
+function MetricCard({
+  icon,
+  title,
+  value,
+  unit,
+}: {
+  icon: string;
+  title: string;
+  value: string;
+  unit: string;
+}) {
+  return (
+    <div className="results-metric-card">
+      <span className="results-metric-icon">{icon}</span>
+      <div className="results-metric-title">{title}</div>
+      <div className="results-metric-value">{value}</div>
+      <div className="results-metric-unit">{unit}</div>
+    </div>
+  );
+}
+
+// Enhanced Meal Card Component with Ingredient Replacement
+function MealCard({ 
+  mealNumber, 
+  meal 
+}: { 
+  mealNumber: number; 
+  meal: MealOptions;
+}) {
+  const [selectedOptions, setSelectedOptions] = React.useState({
+    protein: meal.protein_opts?.[0] || null,
+    carb: meal.carb_opts?.[0] || null,
+    veg: meal.veg_opts?.[0] || null,
+    fat: meal.fat_opts?.[0] || null,
+  });
+
+  // Calculate total calories and macros from selected ingredients
+  const calculateTotals = () => {
+    let totalKcal = 0, totalP = 0, totalC = 0, totalF = 0;
+    
+    Object.values(selectedOptions).forEach(option => {
+      if (option?.totals) {
+        totalKcal += option.totals.kcal || 0;
+        totalP += option.totals.p || 0;
+        totalC += option.totals.c || 0;
+        totalF += option.totals.f || 0;
+      }
+    });
+    
+    return { kcal: totalKcal, p: totalP, c: totalC, f: totalF };
+  };
+
+  const totals = calculateTotals();
+
+  return (
+    <div className="results-meal-card">
+      <div className="results-meal-header">
+        <div className="results-meal-title-container">
+          <span className="results-meal-icon">🍽️</span>
+          <span className="results-meal-title">Meal {mealNumber}</span>
+        </div>
+        <div className="results-meal-totals">
+          <span className="results-meal-calories">{totals.kcal} kcal</span>
+          <span className="results-meal-macros">
+            {totals.p}p • {totals.c}c • {totals.f}f
+          </span>
+        </div>
+      </div>
+      
+      <div className="results-meal-content">
+        <div className="results-meal-ingredients">
+          {Object.entries(selectedOptions).map(([category, option]) => {
+            if (!option) return null;
+            
+            return (
+              <IngredientCategory
+                key={category}
+                category={category as keyof typeof selectedOptions}
+                option={option}
+                meal={meal}
+                onOptionChange={(newOption) => {
+                  setSelectedOptions(prev => ({
+                    ...prev,
+                    [category]: newOption
+                  }));
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Ingredient Category Component with Replacement Options
+function IngredientCategory({ 
+  category, 
+  option, 
+  meal, 
+  onOptionChange 
+}: { 
+  category: 'protein' | 'carb' | 'veg' | 'fat';
+  option: any;
+  meal: MealOptions;
+  onOptionChange: (option: any) => void;
+}) {
+  const [showAlternatives, setShowAlternatives] = React.useState(false);
+  
+  const categoryEmoji = {
+    protein: '🥩',
+    carb: '🍞', 
+    veg: '🥬',
+    fat: '🫒'
+  };
+
+  const categoryName = {
+    protein: 'Protein',
+    carb: 'Carbs',
+    veg: 'Vegetables', 
+    fat: 'Fats'
+  };
+
+  // Get all available options for this category
+  const availableOptions = meal[`${category}_opts` as keyof MealOptions] || [];
+  
+  // For demo purposes, create some alternative options
+  // In a real app, you'd fetch these from your ingredient database
+  const mockAlternatives = React.useMemo(() => {
+    if (category === 'protein') {
+      return [
+        {
+          combo_label: "Chicken Breast",
+          items: [{ name: "Chicken Breast", grams: 120, category: 'protein', p: 37, c: 0, f: 4, kcal: 180 }],
+          totals: { p: 37, c: 0, f: 4, kcal: 180 }
+        },
+        {
+          combo_label: "Greek Yogurt",
+          items: [{ name: "Greek Yogurt", grams: 170, category: 'protein', p: 17, c: 6, f: 1, kcal: 100 }],
+          totals: { p: 17, c: 6, f: 1, kcal: 100 }
+        },
+        {
+          combo_label: "Tofu",
+          items: [{ name: "Tofu (Firm)", grams: 150, category: 'protein', p: 12, c: 3, f: 8, kcal: 120 }],
+          totals: { p: 12, c: 3, f: 8, kcal: 120 }
+        }
+      ];
+    } else if (category === 'carb') {
+      return [
+        {
+          combo_label: "Rice",
+          items: [{ name: "Basmati Rice (Cooked)", grams: 180, category: 'carb', p: 6, c: 45, f: 1, kcal: 218 }],
+          totals: { p: 6, c: 45, f: 1, kcal: 218 }
+        },
+        {
+          combo_label: "Oats",
+          items: [{ name: "Oats", grams: 50, category: 'carb', p: 8, c: 33, f: 3, kcal: 195 }],
+          totals: { p: 8, c: 33, f: 3, kcal: 195 }
+        },
+        {
+          combo_label: "Sweet Potato",
+          items: [{ name: "Sweet Potato", grams: 180, category: 'carb', p: 3, c: 36, f: 0, kcal: 155 }],
+          totals: { p: 3, c: 36, f: 0, kcal: 155 }
+        }
+      ];
+    } else if (category === 'fat') {
+      return [
+        {
+          combo_label: "Olive Oil",
+          items: [{ name: "Extra Virgin Olive Oil", grams: 10, category: 'fat', p: 0, c: 0, f: 10, kcal: 88 }],
+          totals: { p: 0, c: 0, f: 10, kcal: 88 }
+        },
+        {
+          combo_label: "Avocado",
+          items: [{ name: "Avocado", grams: 70, category: 'fat', p: 1, c: 6, f: 11, kcal: 112 }],
+          totals: { p: 1, c: 6, f: 11, kcal: 112 }
+        },
+        {
+          combo_label: "Almonds",
+          items: [{ name: "Almonds", grams: 25, category: 'fat', p: 5, c: 6, f: 13, kcal: 145 }],
+          totals: { p: 5, c: 6, f: 13, kcal: 145 }
+        }
+      ];
+    } else { // veg
+      return [
+        {
+          combo_label: "Broccoli",
+          items: [{ name: "Broccoli", grams: 100, category: 'veg', p: 3, c: 7, f: 0, kcal: 34 }],
+          totals: { p: 3, c: 7, f: 0, kcal: 34 }
+        },
+        {
+          combo_label: "Spinach",
+          items: [{ name: "Spinach", grams: 100, category: 'veg', p: 3, c: 4, f: 0, kcal: 23 }],
+          totals: { p: 3, c: 4, f: 0, kcal: 23 }
+        },
+        {
+          combo_label: "Bell Pepper",
+          items: [{ name: "Bell Pepper", grams: 100, category: 'veg', p: 1, c: 6, f: 0, kcal: 31 }],
+          totals: { p: 1, c: 6, f: 0, kcal: 31 }
+        }
+      ];
+    }
+  }, [category]);
+
+  const allOptions = [...availableOptions, ...mockAlternatives];
+
+  return (
+    <div className="results-ingredient-category">
+      <div className="results-ingredient-header">
+        <div className="results-ingredient-main">
+          <div className="results-ingredient-info">
+            <div className={`results-ingredient-category-icon category-${category}`}>
+              {categoryEmoji[category]}
+            </div>
+            <div>
+              <div className="results-ingredient-name">
+                {option.items?.[0]?.name || categoryName[category]}
+              </div>
+              <div className="results-ingredient-amount">
+                {option.items?.[0]?.grams || 0}g
+              </div>
+            </div>
+          </div>
+          
+          <div className="results-ingredient-macros">
+            <span>{option.totals?.kcal || 0} cal</span>
+            <span>{option.totals?.p || 0}p</span>
+            <span>{option.totals?.c || 0}c</span>
+            <span>{option.totals?.f || 0}f</span>
+          </div>
+        </div>
+        
+        <button
+          className="results-replace-button"
+          onClick={() => setShowAlternatives(!showAlternatives)}
+        >
+          {showAlternatives ? '✕' : '↻'}
+        </button>
+      </div>
+
+      {showAlternatives && (
+        <div className="results-alternatives">
+          <div className="results-alternatives-title">
+            Choose {categoryName[category]}:
+          </div>
+          <div className="results-alternatives-grid">
+            {allOptions.map((alt, idx) => (
+              <button
+                key={idx}
+                className={`results-alternative-option ${option === alt ? 'selected' : ''}`}
+                onClick={() => {
+                  onOptionChange(alt);
+                  setShowAlternatives(false);
+                }}
+              >
+                <div className="results-alternative-name">
+                  {alt.items?.[0]?.name || alt.combo_label}
+                </div>
+                <div className="results-alternative-macros">
+                  {alt.totals?.kcal || 0} cal
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+// Enhanced Workout Card Component
+function WorkoutCard({ day }: { 
+  day: { 
+    day: number; 
+    blocks: Array<{ 
+      muscle: string; 
+      exerciseId: string; 
+      sets: number; 
+      reps: string; 
+      rir: string;
+      musclesWorked?: string[];
+      rir_hint?: string;
+      rest_hint?: string;
+      progression_hint?: string;
+    }>;
+  };
+}) {
+  return (
+    <div className="results-workout-card">
+      <div className="results-workout-header">
+        <span className="results-workout-day">Day {day.day}</span>
+        <span className="results-workout-count">
+          {(day.blocks || []).length} exercise{(day.blocks || []).length !== 1 ? 's' : ''}
+        </span>
+      </div>
+      
+      <div className="results-exercises-list">
+        {(day.blocks || []).map((block, idx) => (
+          <ExerciseBlock key={idx} block={block} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Exercise Block Component
+function ExerciseBlock({ block }: { 
+  block: { 
+    muscle: string; 
+    exerciseId: string; 
+    sets: number; 
+    reps: string; 
+    rir: string;
+    musclesWorked?: string[];
+    rir_hint?: string;
+    rest_hint?: string;
+    progression_hint?: string;
+  };
+}) {
+  // Show all muscles worked, or fall back to primary muscle
+  const musclesText = block.musclesWorked && block.musclesWorked.length > 1 
+    ? block.musclesWorked.join(', ') 
+    : block.muscle;
+
+  return (
+    <div className="results-exercise-block">
+      <div className="results-exercise-main">
+        <div className="results-exercise-name-container">
+          <span className="results-exercise-name">
+            {formatExerciseName(block.exerciseId)}
+          </span>
+          <span className="results-exercise-muscle">{musclesText}</span>
+        </div>
+        <div className="results-exercise-stats">
+          <span className="results-exercise-sets">{block.sets} sets</span>
+          <span className="results-exercise-reps">{block.reps} reps</span>
+          <span className="results-exercise-rir">RIR {block.rir}</span>
+        </div>
+      </div>
+      
+      {(block.rir_hint || block.rest_hint || block.progression_hint) && (
+        <div className="results-exercise-hints">
+          {block.rest_hint && (
+            <div className="results-exercise-hint">
+              <span className="results-hint-icon">⏱️</span>
+              <span>Rest: {block.rest_hint}</span>
+            </div>
+          )}
+          {block.progression_hint && (
+            <div className="results-exercise-hint">
+              <span className="results-hint-icon">📈</span>
+              <span>{block.progression_hint}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Helper Functions
+function formatExerciseName(exerciseId: string): string {
+  return exerciseId
+    .replace(/bw_/g, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function exportToPDF(plan: GenerateRes) {
+  // Enhanced PDF export
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
+  
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Weightio Plan</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 40px; }
+          h1 { color: #2d3748; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+          h2 { color: #4a5568; margin-top: 30px; }
+          .meal { margin: 20px 0; padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; }
+          .exercise { margin: 10px 0; padding: 10px; background: #f7fafc; border-radius: 6px; }
+          .combo { margin: 10px 0; padding: 10px; background: #edf2f7; border-radius: 6px; }
+          .ingredient { margin: 5px 0; padding: 5px; background: white; border-radius: 4px; }
+        </style>
+      </head>
+      <body>
+        <h1>🏋️ Your Weightio Plan</h1>
+        
+        <h2>📊 Overview</h2>
+        <p><strong>Daily Calories:</strong> ${plan.kcal || 0} kcal</p>
+        <p><strong>Protein:</strong> ${plan.macros?.protein_g || 0}g | <strong>Carbs:</strong> ${plan.macros?.carb_g || 0}g | <strong>Fat:</strong> ${plan.macros?.fat_g || 0}g</p>
+        <p><strong>BMR:</strong> ${Math.round(plan.idx?.BMR || 0)} kcal/day | <strong>TDEE:</strong> ${Math.round(plan.idx?.TDEE || 0)} kcal/day</p>
+        <p><strong>Confidence:</strong> ${plan.confidence.toUpperCase()}</p>
+        
+        <h2>🍽️ Meal Plans</h2>
+        ${(plan.ingredients?.meals || []).map((meal, mealIdx) => `
+          <div class="meal">
+            <h3>Meal ${mealIdx + 1}</h3>
+            ${[...(meal.protein_opts || []), ...(meal.carb_opts || []), ...(meal.veg_opts || []), ...(meal.fat_opts || [])]
+              .map((combo) => `
+                <div class="combo">
+                  <strong>${combo.combo_label || 'Meal Combo'}</strong> (${combo.totals?.kcal || (combo as any).kcal || 0} kcal)
+                  ${((combo.items || (combo as any).ingredients || []) as any[]).map((item: any) => `
+                    <div class="ingredient">
+                      • ${item.name || item.ingredient_name || 'Ingredient'} - ${item.grams || item.amount || 0}g (${item.kcal || item.calories || 0} kcal, ${item.p || item.protein || 0}p/${item.c || item.carbs || 0}c/${item.f || item.fat || 0}f)
+                    </div>
+                  `).join('')}
+                </div>
+              `).join('')}
+          </div>
+        `).join('')}
+        
+        <h2>💪 Training Schedule</h2>
+        ${(plan.workouts || []).map(day => `
+          <div class="workout">
+            <h3>Day ${day.day}</h3>
+            ${(day.blocks || []).map(block => {
+              const musclesText = (block as any).musclesWorked && (block as any).musclesWorked.length > 1 
+                ? (block as any).musclesWorked.join(', ') 
+                : block.muscle;
+              return `
+                <div class="exercise">
+                  <strong>${formatExerciseName(block.exerciseId)}</strong> (${musclesText})
+                  <br>${block.sets} sets × ${block.reps} reps (RIR ${block.rir})
+                  ${block.rest_hint ? `<br>Rest: ${block.rest_hint}` : ''}
+                  ${block.progression_hint ? `<br>Progression: ${block.progression_hint}` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `).join('')}
+        
+        <h2>💡 Tips</h2>
+        ${(plan.tips || []).map(tip => `<p>• ${tip}</p>`).join('')}
+        
+        <div style="margin-top: 40px; text-align: center; color: #718096;">
+          Generated by Weightio AI • Personalized for optimal results
+        </div>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.print();
+}
+
+function sharesPlan(plan: GenerateRes) {
+  const shareText = `Check out my personalized Weightio plan! 🏋️\n\n📊 ${plan.kcal || 0} kcal/day\n💪 ${(plan.workouts || []).length} workout days\n🍽️ ${(plan.ingredients?.meals || []).length} meals planned\n\nGenerated by Weightio AI`;
+  
+  if (navigator.share) {
+    navigator.share({
+      title: 'My Weightio Plan',
+      text: shareText,
+      url: window.location.href,
+    });
+  } else {
+    // Fallback - copy to clipboard
+    navigator.clipboard.writeText(shareText).then(() => {
+      alert('Plan details copied to clipboard!');
+    });
+  }
+}
