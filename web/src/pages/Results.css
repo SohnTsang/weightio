@@ -599,62 +599,11 @@
   overflow-y: auto;
 }
 
-.results-ingredient-item {
-  background: white;
-  border-radius: 6px;
-  padding: 6px 8px;
-  border: 1px solid #e2e8f0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  min-height: 32px;
-}
 
-.results-ingredient-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
 
-.results-ingredient-category {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 8px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
 
-.results-ingredient-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: #2d3748;
-}
 
-.results-ingredient-label {
-  font-size: 10px;
-  color: #718096;
-  margin-left: 4px;
-}
 
-.results-ingredient-amount {
-  font-size: 12px;
-  font-weight: 600;
-  color: #4a5568;
-  margin-right: 8px;
-}
-
-.results-ingredient-macros {
-  display: flex;
-  gap: 8px;
-  font-size: 10px;
-  color: #718096;
-}
 
 /* Workouts Grid - Compact */
 .results-workouts-grid {
